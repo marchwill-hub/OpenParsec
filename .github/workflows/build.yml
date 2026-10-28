@@ -139,7 +139,14 @@ jobs:
           zip -r "$scheme.ipa" "Payload" -x "._*" -x ".DS_Store" -x "__MACOSX"
       - name: Verify IPA payload (SDK stamp)
         run: |
-          SDK_NAME=$(unzip -p "$scheme.ipa" "Payload/$scheme.app/Info.plist" | plutil -extract DTSDKName raw -o - - 2>/dev/null || true)
+          SDK_NAME=$(python3 - "$scheme.ipa" "$scheme" <<'PYEOF'
+          import sys, zipfile, plistlib
+          ipa, app = sys.argv[1], sys.argv[2]
+          with zipfile.ZipFile(ipa) as z:
+              data = z.read(f"Payload/{app}.app/Info.plist")
+          print(plistlib.loads(data).get("DTSDKName", "") or "")
+          PYEOF
+          )
           echo "IPA DTSDKName: ${SDK_NAME:-<not found>}"
           case "$SDK_NAME" in
             iphoneos27*) echo "iOS 27 SDK confirmed in IPA";;
